@@ -17,6 +17,7 @@ class Wizard:
             print("\n\n===  ABORTED  ===")
         else:
             print("\nYou're all set :)")
+            print("Make sure to checkout repositories only with SSH links from GitHub.")
             print("It's been a pleasure setting up your git.\n")
         print("* You can always run this script again to configure your git settings\n")
 
@@ -94,6 +95,9 @@ class GitConfig:
         public_ssh_key = self._get_public_ssh_key()
         wizard.print_public_ssh_key_with_instructions(public_ssh_key)
 
+    def configure_global_git_settings(self):
+        subprocess.call(['git', 'config', '--global', ',push.default', 'simple'])
+
     def _generate_ssh_keys(self):
         subprocess.call(['ssh-keygen', '-t', 'rsa', '-b', '4096', '-C', '%s' % self.get_user_email()])
 
@@ -120,6 +124,8 @@ if __name__ == "__main__":
         else:
             if wizard.ask_if_user_wants_to_keep_current_email(gitConfig.get_user_email()) == DECISION.CHANGE:
                 gitConfig.configure_user_email(withWizard=wizard)
+
+        gitConfig.configure_global_git_settings()
 
         if wizard.ask_if_user_wants_to_setup_ssh_key():
             gitConfig.configure_ssh(withWizard=wizard)
