@@ -8,36 +8,75 @@ class DECISION:
     CHANGE = 2
 
 class Wizard:
+    def run(self):
+        try:
+            self.greet_hello()
+
+            self.configure_environment()
+            self.configure_cli_shortcuts()
+            self.configure_ssh()
+
+            self.say_goodbye()
+
+        except KeyboardInterrupt:
+            self.print_abortion_prompt()
+
+        self.print_end_disclaimer()
+
+    def configure_environment(self):
+        self.configure_user_name()
+        self.configure_user_email()
+        GitConfig().configure_global_git_settings()
+
+    def configure_ssh(self):
+        if self.ask_if_user_wants_to_setup_ssh_key() == False:
+            return
+
+        sshConfig = SshConfig()
+        self.print_ssh_keygen_instructions()
+        sshConfig.generate_ssh_keys()
+        self.print_public_ssh_key_with_instructions(sshConfig.get_public_ssh_key())
+
+    def configure_cli_shortcuts(self):
+        pass
+
     def greet_hello(self):
         print(
         "\nWelcome %s. This script will help you setup your GitHub account on this computer :)\n" % os.environ["USER"])
 
     def say_goodbye(self, aborted = False):
-        if aborted:
-            print("\n\n===  ABORTED  ===")
-        else:
-            print("\nYou're all set :)")
-            print("Make sure to checkout repositories only with SSH links from GitHub.")
-            print("It's been a pleasure setting up your git.\n")
+        print("\nYou're all set :)")
+        print("Make sure to checkout repositories only with SSH links from GitHub.")
+        print("It's been a pleasure setting up your git.\n")
+
+    def print_abortion_prompt(self):
+        print("\n\n=============================  ABORTED  =============================")
+
+    def print_end_disclaimer(self):
         print("* You can always run this script again to configure your git settings\n")
 
-    def ask_if_user_wants_to_keep_current_email(self, email):
-        print("Your email is currently configured to '%s'." % email)
-        if raw_input("Would you like to keep it? [Y/n]: ") == 'n':
-            return DECISION.CHANGE
-        return DECISION.KEEP
+    def configure_user_name(self):
+        gitConfig = GitConfig()
+        current_username = gitConfig.get_user_name()
+        new_username = self.prompt_user_for_value("Please enter your full name", current_username)
+        if new_username != current_username:
+            gitConfig.configure_user_name(new_username)
 
-    def ask_if_user_wants_to_keep_current_name(self, name):
-        print("Your name is currently configured to '%s'." % name)
-        if raw_input("Would you like to keep it? [Y/n]: ") == 'n':
-            return DECISION.CHANGE
-        return DECISION.KEEP
+    def configure_user_email(self):
+        gitConfig = GitConfig()
+        current_user_email = gitConfig.get_user_email()
+        new_user_email = self.prompt_user_for_value("Please enter your GitHub user email", current_user_email)
+        if new_user_email != current_user_email:
+            gitConfig.configure_user_email(current_user_email)
 
-    def ask_user_for_name(self):
-        return raw_input("Please enter your full name: ").strip()
-
-    def ask_user_for_email(self):
-        return raw_input("Please enter your GitHub user email: ").strip()
+    def prompt_user_for_value(self, prompt, current_value):
+        if current_value != '':
+            prompt = "%s%s" % (prompt, " [%s]" % current_value)
+        prompt = "%s%s" % (prompt, ": ")
+        user_input = raw_input("%s" % prompt).strip()
+        if user_input == '':
+            return current_value
+        return user_input
 
     def ask_if_user_wants_to_setup_ssh_key(self):
         return raw_input("Would you like to generate an SSH key? [Y/n]: ") != 'n'
@@ -65,13 +104,8 @@ class GitConfig:
         except subprocess.CalledProcessError:
             return ''
 
-    def is_user_name_configured(self):
-        return self.get_user_name() != ''
-
-    def configure_user_name(self, withWizard):
-        wizard = withWizard
-        user_name = wizard.ask_user_for_name()
-        subprocess.call(['git', 'config', '--global', 'user.name', '%s' % user_name])
+    def configure_user_name(self, username):
+        subprocess.call(['git', 'config', '--global', 'user.name', '%s' % username])
 
     def get_user_email(self):
         try:
@@ -79,58 +113,22 @@ class GitConfig:
         except subprocess.CalledProcessError:
             return ''
 
-    def is_user_email_configured(self):
-        return self.get_user_email() != ''
-
-    def configure_user_email(self, withWizard):
-        wizard = withWizard
-        user_email = wizard.ask_user_for_email()
+    def configure_user_email(self, user_email):
         subprocess.call(['git', 'config', '--global', 'user.email', "%s" % user_email])
         pass
-
-    def configure_ssh(self, withWizard):
-        wizard = withWizard
-        wizard.print_ssh_keygen_instructions()
-        self._generate_ssh_keys()
-        public_ssh_key = self._get_public_ssh_key()
-        wizard.print_public_ssh_key_with_instructions(public_ssh_key)
 
     def configure_global_git_settings(self):
         subprocess.call(['git', 'config', '--global', ',push.default', 'simple'])
 
-    def _generate_ssh_keys(self):
-        subprocess.call(['ssh-keygen', '-t', 'rsa', '-b', '4096', '-C', '%s' % self.get_user_email()])
 
-    def _get_public_ssh_key(self):
+class SshConfig():
+    def get_public_ssh_key(self):
         public_ssh_file = open(os.path.join(os.sep, 'home', os.environ['USER'], '.ssh', 'id_rsa.pub'))
         return '\n'.join(public_ssh_file.readlines())
 
+    def generate_ssh_keys(self):
+        subprocess.call(['ssh-keygen', '-t', 'rsa', '-b', '4096', '-C', '%s' % GitConfig().get_user_email()])
+
 
 if __name__ == "__main__":
-    wizard = Wizard()
-    try:
-        wizard.greet_hello()
-
-        gitConfig = GitConfig()
-
-        if not gitConfig.is_user_name_configured():
-            gitConfig.configure_user_name(withWizard=wizard)
-        else:
-            if wizard.ask_if_user_wants_to_keep_current_name(gitConfig.get_user_name()) == DECISION.CHANGE:
-                gitConfig.configure_user_name(withWizard=wizard)
-
-        if not gitConfig.is_user_email_configured():
-            gitConfig.configure_user_email(withWizard=wizard)
-        else:
-            if wizard.ask_if_user_wants_to_keep_current_email(gitConfig.get_user_email()) == DECISION.CHANGE:
-                gitConfig.configure_user_email(withWizard=wizard)
-
-        gitConfig.configure_global_git_settings()
-
-        if wizard.ask_if_user_wants_to_setup_ssh_key():
-            gitConfig.configure_ssh(withWizard=wizard)
-
-        wizard.say_goodbye()
-
-    except KeyboardInterrupt:
-        wizard.say_goodbye(aborted=True)
+    Wizard().run()
