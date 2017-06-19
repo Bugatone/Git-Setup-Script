@@ -1,6 +1,7 @@
 ### Usage
+Just run these three lines in your terminal.
 ```bash
-$ git clone git@github.com:Bugatone/Git-Setup-Script.git git-script
-$ chmod +x ./git-script/setup-git.py
-$ ./git-script/setup-git.py
+wget http://github.com/Bugatone/Git-Setup-Script/archive/master.zip
+unzip master.zip
+Git-Setup-Script-master/setup-git.py
 ```
